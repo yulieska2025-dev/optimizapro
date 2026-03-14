@@ -1,0 +1,44 @@
+services:
+  # Web service for the backend API + frontend serving
+  - type: web
+    name: optimizapro-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    port: 5000
+    buildCommand: npm run build
+    startCommand: node dist/index.cjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: optimizapro-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRO_PRICE_ID
+        value: price_1T8fVR2edAtEn8PaM12aJ0rs
+      - key: STRIPE_ILIMITADO_PRICE_ID
+        value: price_1T8fYI2edAtEn8PamUZd12Ik
+      - key: BREVO_API_KEY
+        sync: false
+      - key: ALERT_EMAIL
+        sync: false
+
+databases:
+  # PostgreSQL database
+  - name: optimizapro-db
+    databaseName: optimizapro
+    user: optimizapro_user
+    region: oregon
+    plan: free

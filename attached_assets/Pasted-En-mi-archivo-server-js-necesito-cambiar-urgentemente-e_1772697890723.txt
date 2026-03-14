@@ -1,0 +1,52 @@
+En mi archivo server.js, necesito cambiar urgentemente el procesamiento de imágenes para usar GPT-4 con visión (GPT-4V) en lugar de Tesseract OCR. Las capturas reales de dashboards de Meta Ads no se están leyendo correctamente con OCR.
+
+**Instrucciones:**
+
+1. Cuando el archivo subido sea una imagen (no CSV), haz lo siguiente:
+   - Lee el archivo y conviértelo a base64.
+   - Envía la imagen a OpenAI usando el modelo "gpt-4-turbo" (que tiene capacidad de visión) con el siguiente prompt:
+
+   **Prompt para la IA (debe ser enviado como mensaje con imagen):**
+
+   "Eres un experto en Facebook Ads y análisis de campañas. Esta es una captura de pantalla del dashboard de Meta Ads. Tu tarea es extraer TODAS las métricas visibles en la imagen, aunque estén en español y con formato visual. Busca números como: inversión (spend), impresiones, clics, CPC, CPM, CTR, frecuencia, ROAS, conversiones, etc. Identifica también el nombre de la campaña o conjunto de anuncios (puede aparecer como 'Conjunto de anuncios' o similar). Si alguna métrica no está visible, indícalo explícitamente.
+
+   Devuelve un análisis estructurado EXACTAMENTE con este formato (usa los datos extraídos; si falta algún campo, pon "No visible" y explica qué métricas faltan):
+
+   ### 1. GLOBAL
+   - Métricas medias: CPM=[valor o 'no visible'], CTR=[...], CPC=[...], Frec=[...], ROAS=[...].
+   - Outliers (más de 2σ): [si se puede calcular, si no, 'no aplica'].
+   - Correlaciones: [si se puede, si no, 'no aplica'].
+
+   ### 2. POR CAMPAÑA (repite para cada campaña visible)
+   **Campaña: [nombre extraído o 'sin nombre']**
+   - Spend | CPC | CPM | CTR | Frec | ROAS | Conv: [valores o 'no visible']
+   - CPA: [calcular si es posible, si no 'no visible']
+   - Tasa conversión: [% si se puede]
+   - Valor medio pedido estimado: [si ROAS y spend visibles, si no 'no visible']
+   - Benchmarks: (comparación con industria, usa 🟢🟡🔴 si tienes datos, si no, pon 'no aplica')
+   - Predicción 7d: [estimación basada en datos visibles, o 'no suficiente información']
+   - Índice fatiga: [calcular solo si hay frecuencia y CPM; si no, 'no aplica']
+   - Riesgo Entity ID: [inferir si hay nombres similares, o 'no aplica']
+   - Diagnóstico: 🟢🟡🔴 (basado en datos visibles)
+
+   ### 3. INSIGHTS AVANZADOS
+   - **Creativo enamorado**: [detectar si alguna campaña tiene bajo CPM y alta frecuencia, explicar]
+   - **Aprendizaje secuencial**: [si hay pares de campañas que podrían relacionarse]
+   - **Fatiga invisible**: [si CPM alto pero CTR estable]
+
+   ### 4. ACCIONES PRIORITARIAS (lista ordenada por urgencia)
+   🔴 **Urgente (24h)**: [acciones concretas basadas en datos visibles]
+   🟡 **Importante (72h)**: ...
+   🟢 **Oportunidad (semanal)**: ...
+
+   **IMPORTANTE:** Usa los números reales que veas en la imagen. Si la imagen es de baja calidad o no se ven datos claramente, indica qué se puede mejorar en la captura."
+
+2. En la llamada a OpenAI, usa el modelo "gpt-4-turbo" (que soporta imágenes). Asegúrate de que la API Key está bien configurada en Secrets.
+
+3. Si la imagen no contiene datos suficientes, la IA debe devolver un mensaje claro explicando qué falta (por ejemplo, "La captura no muestra métricas numéricas, solo gráficos" o "La imagen es demasiado pequeña, necesito una captura más nítida").
+
+4. Mantén el procesamiento de CSV igual que antes (con csv-parse). El resto de la lógica (límites de usuario, etc.) debe seguir funcionando.
+
+5. Después de implementar, prueba con la imagen real que te he enviado (la que tiene texto en español y números). Debería extraer al menos algunas métricas como inversión, CPC, CPM, etc.
+
+¡Es urgente! Esto es lo que los usuarios necesitan.

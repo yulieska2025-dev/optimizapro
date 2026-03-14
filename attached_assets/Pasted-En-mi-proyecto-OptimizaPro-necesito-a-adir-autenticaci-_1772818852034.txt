@@ -1,0 +1,24 @@
+En mi proyecto OptimizaPro, necesito añadir autenticación de usuarios con Clerk, pero de forma **mínima y exclusivamente en el frontend**. No quiero modificar el backend ni añadir lógica de límites o base de datos en este paso. Solo quiero que los usuarios puedan iniciar sesión con Google/email, y que la interfaz muestre su estado de autenticación.
+
+**Instrucciones específicas:**
+
+1. **Frontend (React con Vite):**
+   - En `client/src/main.tsx` (o el archivo de entrada), envuelve la aplicación con `<ClerkProvider>` usando la publishable key que ya está en Secrets (`VITE_CLERK_PUBLISHABLE_KEY`). No añadas ninguna prop adicional.
+   - En `client/src/pages/home.tsx`, añade los componentes de Clerk en el lugar adecuado (por ejemplo, en el header):
+     - Importa `SignedIn, SignedOut, SignInButton, UserButton, useUser` desde `@clerk/clerk-react`.
+     - Muestra `SignedOut` con un botón de inicio de sesión (modal).
+     - Muestra `SignedIn` con el `UserButton` y, opcionalmente, el email del usuario.
+   - No elimines ni modifiques ninguna funcionalidad existente (análisis, botón de descarga, etc.). Solo añade los componentes de autenticación en un lugar visible, respetando el diseño actual.
+
+2. **Backend:**
+   - **No toques el backend.** No añadas middleware de Clerk, ni rutas protegidas, ni base de datos, ni lógica de límites. El análisis debe seguir funcionando para todos los usuarios, autenticados o no (por ahora).
+
+3. **Variables de entorno:**
+   - Asegúrate de que la clave `VITE_CLERK_PUBLISHABLE_KEY` está correctamente definida en Secrets. Si no lo está, indícalo.
+
+4. **Recordatorio para el usuario (no para el asistente):**
+   - Después de implementar estos cambios, el usuario debe ir al dashboard de Clerk y añadir el dominio de la aplicación (ej. `https://optimiza-pro.tu-usuario.replit.app`) en **Configure → Domains**. Esto es necesario para que Clerk acepte solicitudes de este dominio.
+
+**Objetivo:** Conseguir que los usuarios puedan iniciar sesión sin afectar la funcionalidad actual. Si el login falla, el error será de configuración en Clerk (dominio no autorizado), no del código.
+
+Realiza los cambios de forma limpia y ordenada. Cuando termines, confírmalo.

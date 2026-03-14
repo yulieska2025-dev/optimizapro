@@ -1,0 +1,95 @@
+Reescribe por completo la lógica de análisis de OptimizaPro (archivo server.js, ruta /api/analyze) siguiendo las siguientes directrices. El objetivo es que el análisis generado supere en calidad, profundidad y utilidad a cualquier consultor humano.
+
+### 1. CONTEXTO Y PRINCIPIOS (DEBEN ESTAR PRESENTES EN CADA ANÁLISIS)
+
+- **Andrómeda 2026**: La creatividad es el targeting. El algoritmo agrupa creativos similares en **Entity IDs**. Si varios anuncios son visualmente parecidos (mismo fondo, misma persona, misma iluminación), compiten entre sí, aumentan CPM y reducen alcance.
+- **Fatiga creativa**: Se diagnostica por la **TRÍADA**: (1) Frecuencia > 3, (2) CPM en aumento, (3) CTR en descenso. Si se cumplen al menos dos, la fatiga está CONFIRMADA.
+- **Similitud visual**: Infiere que campañas con alta frecuencia y CPM alto tienen problemas de similitud, aunque no veas las imágenes.
+- **Objetivo de campaña**: Deduce el objetivo por el nombre (si contiene "tráfico", "awareness", no penalices la falta de conversiones; si contiene "ventas", "conversiones", el ROAS es prioritario).
+
+### 2. ESTRUCTURA OBLIGATORIA DEL INFORME (GENERAR SIEMPRE EN ESTE ORDEN)
+
+#### 🔍 RESUMEN EJECUTIVO
+- 3 líneas máx. Estado general, campaña con mejor rendimiento, campaña con peor rendimiento, alerta principal.
+
+#### 📊 MÉTRICAS GLOBALES (opcional, si hay varias campañas)
+- Comparativa rápida: rango de CTR, CPC, CPM, ROAS.
+
+#### 🚨 DIAGNÓSTICO POR CAMPAÑA (para cada fila del CSV, usando los nombres exactos)
+
+**Campaña: [Nombre]**
+- **Métricas clave**: Spend, CPC, CPM, CTR, Frecuencia, ROAS, Conversiones.
+- **Análisis de fatiga**: ¿Se cumple la tríada? ¿Frecuencia peligrosa? ¿CPM anómalo? ¿CTR aceptable?
+- **Entity IDs y similitud**: Infiere si los creativos podrían estar canibalizándose (basado en frecuencia+CPM).
+- **Predicción Andrómeda a 7 días**:
+   - *Escenario sin cambios*: "Si no actúas, en X días el ROAS caerá a Y y el CPM subirá un Z%."
+   - *Escenario con acciones recomendadas*: "Si aplicas las acciones, podrías recuperar ROAS de W en 5 días."
+- **Diagnóstico final**: 🟢 Saludable / 🟡 Atención / 🔴 Crítico.
+
+#### ⚡ RECOMENDACIONES ACCIONABLES (NO GENÉRICAS)
+
+- Para campañas 🔴: "PAUSA esta campaña 48h. Mientras, crea 2 nuevos creativos con ángulos DISTINTOS: (a) testimonio en video, (b) UGC mostrando el problema-solución, (c) founder selfie."
+- Para campañas 🟡: "Reduce frecuencia rotando creativos. Prueba estos 3 ángulos: ..."
+- Para campañas 🟢: "Aumenta presupuesto +20% cada 72h monitorizando frecuencia. Considera escalar a lookalike de compradores."
+- Ajustes de puja: "Cambia de Lowest Cost a Cost Cap con target de [X]€ para proteger ROAS."
+- Segmentación: "Refina público excluyendo [sugerir exclusión lógica]."
+
+#### 🔴🟡🟢 PRIORIZACIÓN (marcar cada acción con icono)
+- 🔴 URGENTE (24h): acciones que evitan quema de presupuesto.
+- 🟡 IMPORTANTE (72h): mejoras de rendimiento.
+- 🟢 OPORTUNIDAD (semanal): escalado y tests.
+
+#### 📈 COMPARATIVA CON BENCHMARKS (usar estos valores por defecto, ajustar si el CSV tiene datos de industria)
+- CTR: <1% malo, 1-1.5% regular, >1.5% bueno.
+- CPC: <0.70€ excelente, 0.70-1.20€ normal, >1.20€ alto.
+- CPM: <12€ bueno, 12-18€ medio, >18€ alto.
+- Frecuencia: <3 saludable, 3-4 atención, >4 fatiga.
+- ROAS: <1.5x bajo, 1.5-2.5x medio, >2.5x bueno.
+
+### 3. INSTRUCCIONES TÉCNICAS PARA EL CÓDIGO
+
+- **Lee el CSV correctamente**: Usa `csv-parse` con opción `columns: true` para respetar los nombres de columna exactos del archivo (Campaign Name, Impressions, Clicks, Spend, Conversions, Frequency, CPM, CTR, CPC, ROAS). Si alguna columna falta, indícalo en el análisis.
+- **Manejo de errores**: Si el CSV está vacío o mal formado, devuelve un mensaje claro.
+- **Construcción del prompt para OpenAI**: El prompt debe incluir:
+   - Los principios de Andrómeda (punto 1).
+   - Los datos del CSV formateados como tabla.
+   - La estructura de salida (punto 2) con marcadores de posición.
+   - La petición explícita de que genere el análisis siguiendo ese formato.
+- **Modelo**: Usa `gpt-4-turbo` con temperatura 0.3 (para respuestas más precisas) y max_tokens 2500.
+- **Seguridad**: Después de procesar, elimina el archivo temporal de uploads.
+
+### 4. EJEMPLO DE SALIDA ESPERADA (para que el Agente entienda el tono y nivel de detalle)
+
+🔍 **RESUMEN EJECUTIVO**  
+Campañas A y D saludables. Campaña C en fatiga severa (frecuencia 4.2, CPM 18.75€). Campaña B sin conversiones, pero su objetivo es tráfico.
+
+📊 **MÉTRICAS GLOBALES**  
+CTR: 0.7%-2.5% | CPC: 0.40€-1.43€ | CPM: 10€-18.75€ | ROAS: 0.8x-4.0x
+
+🚨 **DIAGNÓSTICO POR CAMPAÑA**
+
+**Campaña: Campaña C - Retargeting**  
+- Spend: 800€ | CPC: 1.43€ | CPM: 18.75€ | CTR: 0.7% | Frecuencia: 3.8 | Conversiones: 4 | ROAS: 0.8x  
+- **Fatiga**: SÍ. Frecuencia 3.8 + CPM alto + CTR bajo = fatiga CONFIRMADA.  
+- **Entity IDs**: Alta probabilidad de similitud visual (mismos creativos mostrados repetidamente).  
+- **Predicción**: Si no actúas, en 5 días el ROAS caerá a 0.4x y el CPM superará 22€.  
+- **Diagnóstico**: 🔴 Crítico.
+
+⚡ **RECOMENDACIONES ACCIONABLES**  
+🔴 **URGENTE (24h)**: PAUSAR Campaña C 48h. Crear 2 nuevos creativos visualmente distintos:  
+   - (a) Testimonio en video de cliente real.  
+   - (b) Carrusel mostrando antes/después.  
+🟡 **IMPORTANTE (72h)**: Para Campaña B, si buscas conversiones, cambia el call-to-action a "Comprar ahora". Si buscas tráfico, mantén.  
+🟢 **OPORTUNIDAD (semanal)**: Aumentar presupuesto Campaña A un 20%.
+
+### 5. VALIDACIÓN FINAL
+
+Antes de devolver el análisis, comprueba que:
+- Cada recomendación es ESPECÍFICA (no "mejorar creativos", sino "crea un video testimonial").
+- Hay predicción de futuro (Andrómeda).
+- Las métricas se comparan con benchmarks.
+- Se prioriza con iconos.
+
+### 6. NOTA PARA EL AGENTE
+
+Implementa estos cambios en server.js, conservando el resto de la funcionalidad (subida de archivos, autenticación, etc.). Asegúrate de que la API Key de OpenAI se lee correctamente de los Secrets.

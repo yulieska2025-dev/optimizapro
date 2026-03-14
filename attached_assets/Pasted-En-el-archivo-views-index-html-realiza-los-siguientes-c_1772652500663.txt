@@ -1,0 +1,33 @@
+En el archivo views/index.html, realiza los siguientes cambios para añadir un botón de descarga del análisis:
+
+1. En la sección HTML, localiza el div con clase "result". Dentro de él, después del div con id "analysisText", encontrarás un botón con id "newAnalysis". Reemplaza ese botón y su posible contenedor por el siguiente bloque de código que incluye dos botones (descargar y nuevo análisis) en un contenedor flex:
+
+<div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+    <button id="downloadAnalysis" style="background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer;">⬇️ Descargar análisis</button>
+    <button class="new-analysis-btn" id="newAnalysis" style="background: #f97316; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer;">Nuevo análisis</button>
+</div>
+
+2. En el bloque <script> que ya existe al final del archivo, añade el siguiente código para manejar el evento de clic del botón de descarga:
+
+// Botón de descarga
+const downloadBtn = document.getElementById('downloadAnalysis');
+if (downloadBtn) {
+    downloadBtn.addEventListener('click', function() {
+        const analysisText = document.getElementById('analysisText').innerText;
+        if (!analysisText || analysisText.trim() === '') {
+            alert('No hay ningún análisis para descargar.');
+            return;
+        }
+        const blob = new Blob([analysisText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'analisis_optimizapro.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+}
+
+Asegúrate de no eliminar ninguna funcionalidad existente (como el evento del botón "Nuevo análisis"). Si ya existe un evento para "Nuevo análisis", debe conservarse.

@@ -1,0 +1,37 @@
+El análisis actual es excelente, pero necesito que lo refines en los siguientes aspectos para alcanzar la perfección absoluta:
+
+### 1. AJUSTAR MAPA DE DIVERSIDAD CREATIVA
+Modifica la lógica de inferencia de Entity IDs para que sea más sensible:
+
+- Si una campaña tiene **frecuencia > 3.5** y **CPM > 12€**, su riesgo de canibalización debe ser al menos 🟡 MEDIO, independientemente de otras métricas.
+- Si dos o más campañas tienen **palabras clave similares** en el nombre (ej. "Oferta", "Retargeting", "Testimonial", "Conversiones") Y además tienen **frecuencia > 3** y **CTR similar**, considera que podrían compartir Entity ID y marca el riesgo como 🟡 o 🔴 según la frecuencia.
+- Añade una columna "Posible agrupación con" en el mapa de diversidad para indicar qué otras campañas podrían estar compitiendo.
+
+### 2. ACTIVAR EXPANSIÓN SEMÁNTICA PARA CANDIDATOS CLAROS
+Activa el bloque **"ESTRATEGIA DE EXPANSIÓN DEL CONCEPTO GANADOR"** para cualquier campaña que cumpla:
+- ROAS > 3.0x
+- CTR > 1.5%
+- Frecuencia < 3.5 (para asegurar que no está fatigada)
+
+En el análisis actual, la Campaña E debería activarlo. Asegúrate de que así sea.
+
+### 3. MEJORAR PREDICCIONES CUANTITATIVAS
+Haz las predicciones más precisas usando rangos y plazos concretos. Por ejemplo:
+- En lugar de "CPM podría subir a 13€", usa: "Con esta tendencia, el CPM alcanzará previsiblemente 13-14€ en los próximos 5-7 días."
+- Si el CTR ha caído, cuantifica: "El CTR podría descender otro 0.2-0.3% en la próxima semana."
+
+### 4. ACTIVAR FATIGA INVISIBLE PARA CASOS LÍMITE
+Añade una alerta de fatiga invisible cuando:
+- CPM > 13€
+- Frecuencia > 3.5
+- CTR > 1.5% (para que no sea fatiga clásica, pero el alto CPM indique que el algoritmo empieza a penalizar)
+
+En el análisis actual, la Campaña F (CPM 13.33€, frecuencia 3.8, CTR 1.7%) debería activarla. Añade el bloque correspondiente con un diagnóstico y plan de acción.
+
+### 5. MEJORAR LA REDACCION DE RECOMENDACIONES (OPCIONAL)
+Si lo ves necesario, puedes añadir un toque más de "urgencia" en las recomendaciones críticas, usando frases como "ACTÚA YA" o "NO LO DEJES PASAR".
+
+### INSTRUCCIONES TÉCNICAS
+- Mantén toda la estructura actual (resumen, métricas globales, diagnóstico por campaña, insights, recomendaciones, priorización, benchmarks).
+- Los cambios deben aplicarse en el backend (server.js) sin alterar el frontend.
+- Si alguna mejora requiere nuevos cálculos (ej. promedios), impleméntalos.
