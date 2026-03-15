@@ -407,7 +407,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             basePrompt = fs.readFileSync(path.join(process.cwd(), "prompt_base.txt"), "utf-8");
             console.log("✅ Prompt base cargado correctamente para el análisis");
           } catch (e) {
-            console.error("❌ ERROR CRÍTICO: No se pudo leer prompt_base.txt:", e);
+            } catch (error: any) {
+  console.error('=== ERROR DETALLADO DE OPENAI ===');
+  console.error('Status:', error.status);
+  console.error('Message:', error.message);
+  console.error('Code:', error.code);
+  console.error('Type:', error.type);
+  console.error('Param:', error.param);
+  if (error.error) {
+    console.error('Error details:', JSON.stringify(error.error, null, 2));
+  }
+  console.error('Full error object:', error);
+  
+  if (error.message?.includes("I'm sorry, I can't assist with this request")) {
+    return res.status(200).json({ analysis: "La imagen no pudo ser analizada debido a restricciones de seguridad. Intenta con una captura más clara o con menos texto superpuesto." });
+  }
+  return res.status(500).json({ error: 'Error de OpenAI: ' + error.message });
+}
+;
           }
           // --- FIN BLOQUE DE SEGURIDAD ---
 
