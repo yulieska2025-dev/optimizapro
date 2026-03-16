@@ -237,6 +237,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   if (process.env.CLERK_SECRET_KEY) {
     app.use("/api", ClerkExpressWithAuth());
+    app.use("/api", ClerkExpressWithAuth());
+    app.get("/api/test-auth", ClerkExpressRequireAuth(), (req: any, res) => {
+  console.log('✅ Usuario autenticado en test-auth:', req.auth?.userId);
+  res.json({ userId: req.auth?.userId, message: "Autenticación correcta" });
+});
+
     console.log("Clerk middleware aplicado en /api");
   } else {
     console.warn("CLERK_SECRET_KEY no configurada. Middleware de Clerk desactivado.");
