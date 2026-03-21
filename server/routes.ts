@@ -11,13 +11,11 @@ import { ClerkExpressWithAuth, ClerkExpressRequireAuth } from "@clerk/clerk-sdk-
 import { getOrCreateUser, resetMonthlyCountIfNeeded, incrementAnalysisCount, checkIpLimit, registerIp, type User } from "./db";
 import { sendAlert } from "./mailer";
 import { createCheckoutSession, handleStripeWebhook, PLANS } from "./stripe";
-
 // 2. CONFIGURACIÓN
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-
 let basePrompt = "";
 try {
   basePrompt = fs.readFileSync(path.join(process.cwd(), "prompt_base.txt"), "utf-8");
@@ -37,7 +35,6 @@ const upload = multer({
     }
   },
 });
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -78,7 +75,9 @@ function findCol(record: Record<string, string>, ...candidates: string[]): strin
   }
   return undefined;
 }
-
+/**
+ * CONTROL DE PRESUPUESTO Y ENRUTAMIENTO INTELIGENTE
+ */
 function computeBudgetDirectives(records: Record<string, string>[]): string {
   const spendCol = findCol(records[0], "spend", "gasto", "cost");
   const roasCol = findCol(records[0], "roas");
@@ -114,7 +113,6 @@ function computeBudgetDirectives(records: Record<string, string>[]): string {
 }
 
 const SYSTEM_PROMPT = `Eres un sistema de IA sobrehumano para analizar campañas de Facebook Ads con Andrómeda 2026. Genera un análisis con la siguiente estructura EXACTA. Usa el formato indicado, sin añadir texto introductorio ni conclusivo.
-
 ### 1. GLOBAL
 - Métricas medias: CPM=〈media〉, CTR=〈media〉, CPC=〈media〉, Frec=〈media〉, ROAS=〈media〉.
 - Outliers (más de 2σ): [lista de campañas con métrica desviada].
@@ -179,7 +177,8 @@ function computeAndromedaDirectives(records: Record<string, string>[]): Andromed
     ctr: parseNum(r[ctrCol]),
     roas: parseNum(r[roasCol]),
   }));
-   const validCpms = campaigns.map((c) => c.cpm).filter((v) => !isNaN(v));
+
+  const validCpms = campaigns.map((c) => c.cpm).filter((v) => !isNaN(v));
   const cpmMean = validCpms.length > 0 ? validCpms.reduce((a, b) => a + b, 0) / validCpms.length : 0;
 
   const pattern4: AndromedaDirectives["pattern4"] = [];
@@ -193,7 +192,6 @@ function computeAndromedaDirectives(records: Record<string, string>[]): Andromed
 
   return { cpmMean, pattern4, pattern5 };
 }
-
 function buildDirectivesBlock(directives: AndromedaDirectives): string {
   let block = "\n════════════════════════════════════════\nDIRECTIVAS PRE-COMPUTADAS\n";
   block += `CPM medio: ${directives.cpmMean.toFixed(2)}€\n`;
@@ -226,31 +224,36 @@ function deleteFile(filePath: string) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // Rutas públicas — ANTES del middleware de Clerk
+  // ==== RUTAS PÚBLICAS (ANTES DEL MIDDLEWARE DE CLERK) ====
   app.get("/api/plans", (_req, res) => {
     res.json(PLANS);
   });
 
-  if (process.env.CLERK_SECRET_KEY) {
-    // Ruta pública del webhook (ANTES del middleware de Clerk)
-    app.post("/api/stripe-webhook", async (req: any, res) => {
+  // Ruta pública del webhook de Stripe
+  app.post("/api/stripe-webhook", async (req: any, res) => {
+    console.log("🔔 Webhook de Stripe recibido");
+    try {
       await handleStripeWebhook(req.rawBody, req.headers['stripe-signature']);
+      console.log("✅ Webhook procesado exitosamente");
       res.json({ received: true });
-    });
-
-    // Middleware de Clerk para el resto de rutas /api
+    } catch (err: any) {
+      console.error("❌ Error en webhook:", err.message);
+      res.status(400).json({ error: err.message });
+    }
+  });
+// ==== MIDDLEWARE DE CLERK (protege el resto de rutas /api) ====
+  if (process.env.CLERK_SECRET_KEY) {
     app.use("/api", ClerkExpressWithAuth());
-
-    // Ruta de prueba (opcional)
-    app.get("/api/test-auth", ClerkExpressRequireAuth(), (req: any, res) => {
-      console.log('✅ Usuario autenticado en test-auth:', req.auth?.userId);
-      res.json({ userId: req.auth?.userId, message: "Autenticación correcta" });
-    });
-
     console.log("Clerk middleware aplicado en /api");
   } else {
     console.warn("CLERK_SECRET_KEY no configurada. Middleware de Clerk desactivado.");
   }
+
+  // ==== RUTAS PROTEGIDAS (requieren autenticación) ====
+  app.get("/api/test-auth", ClerkExpressRequireAuth(), (req: any, res) => {
+    console.log('✅ Usuario autenticado en test-auth:', req.auth?.userId);
+    res.json({ userId: req.auth?.userId, message: "Autenticación correcta" });
+  });
 
   app.get("/api/protected", ClerkExpressRequireAuth(), (req: any, res) => {
     const userId = req.auth?.userId;
@@ -265,7 +268,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
      
       const email = req.auth?.sessionClaims?.email as string | undefined;
       const user = await getOrCreateUser(clerkId, email);
-     
       const resetUser = await resetMonthlyCountIfNeeded(user);
      
       let analysesLeft: number;
@@ -298,8 +300,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.log('   - Ruta:', req.file.path);
     }
     if (!req.file) return res.status(400).json({ error: "Sin archivo" });
-
-    // --- FREEMIUM CHECK ---
+// --- FREEMIUM CHECK ---
     let dbUser: User | null = null;
     if (process.env.CLERK_SECRET_KEY) {
       const clerkId: string | undefined = req.auth?.userId;
@@ -330,7 +331,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       dbUser = await resetMonthlyCountIfNeeded(dbUser);
-       console.log(`[Freemium] plan=${dbUser.plan}, analyses_count=${dbUser.analyses_count}`);
+
+      console.log(`[Freemium] plan=${dbUser.plan}, analyses_count=${dbUser.analyses_count}`);
 
       const limit = dbUser.plan === "free" ? 2 : dbUser.plan === "pro" ? 50 : Infinity;
       if (dbUser.analyses_count >= limit) {
@@ -372,8 +374,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (stats.size === 0) {
             throw new Error("El archivo subido está vacío.");
           }
-
-          let imageBuffer;
+ let imageBuffer;
           if (req.file.size > 500 * 1024) {
             console.log("3. Imagen grande, redimensionando con sharp...");
             imageBuffer = await sharp(req.file.path)
@@ -398,6 +399,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           return res.status(500).json({ error: "Configuración de API incompleta" });
         }
         console.log("4. API key presente");
+        // await checkBudget();
 
         try {
           console.log('Enviando a OpenAI con modelo: gpt-4o');
@@ -456,6 +458,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const { table, directives } = parseCsvToTable(req.file.path);
         const budgetAdvice = computeBudgetDirectives(records);
         const userPrompt = buildCsvPrompt(table, req.file.originalname, directives, budgetAdvice);
+
+        // await checkBudget();
 
         let model = "gpt-3.5-turbo";
         if (records.length > 5) model = "gpt-4-turbo";
@@ -523,7 +527,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
-
+  // Endpoint: registrar interés en plan de pago
   app.post("/api/interest", async (req, res) => {
     const { plan, email, name } = req.body as { plan: string; email: string; name: string };
     const planLabel = plan === "pro" ? "Pro (5€/mes)" : plan === "agency" ? "Agencia (15€/mes)" : plan;
@@ -538,6 +542,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ ok: true });
   });
 
+  // POST /api/stripe/create-checkout-session — inicia checkout de Stripe
   app.post("/api/stripe/create-checkout-session", ClerkExpressRequireAuth(), async (req: any, res) => {
     try {
       const clerkId = req.auth?.userId;
@@ -564,6 +569,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ status: isClerkConfigured ? "OK" : "Variables missing" });
   });
 
+  // HEALTH CHECK: Verificar balance de OpenAI cada hora
   async function checkOpenAIBalance() {
     try {
       const apiKey = process.env.OPENAI_API_KEY;
@@ -618,9 +624,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 }
 
 
-   
 
 
 
-   
-      
