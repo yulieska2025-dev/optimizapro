@@ -236,6 +236,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   if (process.env.CLERK_SECRET_KEY) {
+    // Ruta pública del webhook (ANTES del middleware de Clerk)
+app.post("/api/stripe-webhook", async (req: any, res) => {
+  await handleStripeWebhook(req.rawBody, req.headers['stripe-signature']);
+  res.json({ received: true });
+});
+
+// Luego, el middleware de Clerk para el resto de rutas /api
+app.use("/api", ClerkExpressWithAuth());
     app.use("/api", ClerkExpressWithAuth());
     app.get("/api/test-auth", ClerkExpressRequireAuth(), (req: any, res) => {
   console.log('✅ Usuario autenticado en test-auth:', req.auth?.userId);
