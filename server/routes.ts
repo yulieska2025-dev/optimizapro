@@ -1,6 +1,7 @@
+
 // 1. IMPORTS
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import { createServer, type Server } "http";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -11,11 +12,13 @@ import { ClerkExpressWithAuth, ClerkExpressRequireAuth } from "@clerk/clerk-sdk-
 import { getOrCreateUser, resetMonthlyCountIfNeeded, incrementAnalysisCount, checkIpLimit, registerIp, type User } from "./db";
 import { sendAlert } from "./mailer";
 import { createCheckoutSession, handleStripeWebhook, PLANS } from "./stripe";
+
 // 2. CONFIGURACIÓN
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
 let basePrompt = "";
 try {
   basePrompt = fs.readFileSync(path.join(process.cwd(), "prompt_base.txt"), "utf-8");
@@ -35,12 +38,12 @@ const upload = multer({
     }
   },
 });
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 3. FUNCIONES AUXILIARES
-
+// 3. FUNCIONES AUXILIARES (estas ya estaban y funcionaban)
 async function checkBudget() {
   try {
     const budget = parseFloat(process.env.OPENAI_MONTHLY_BUDGET || "5");
@@ -48,10 +51,8 @@ async function checkBudget() {
       start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
       end_date: new Date().toISOString().split('T')[0]
     });
-   
     const totalSpent = usage.total_usage / 100;
     const percentUsed = (totalSpent / budget) * 100;
-   
     if (percentUsed > 90) {
       throw new Error(`Límite de presupuesto mensual alcanzado (${percentUsed.toFixed(1)}%). No se pueden realizar más análisis hasta el próximo mes.`);
     }
@@ -75,6 +76,7 @@ function findCol(record: Record<string, string>, ...candidates: string[]): strin
   }
   return undefined;
 }
+
 /**
  * CONTROL DE PRESUPUESTO Y ENRUTAMIENTO INTELIGENTE
  */
@@ -113,6 +115,7 @@ function computeBudgetDirectives(records: Record<string, string>[]): string {
 }
 
 const SYSTEM_PROMPT = `Eres un sistema de IA sobrehumano para analizar campañas de Facebook Ads con Andrómeda 2026. Genera un análisis con la siguiente estructura EXACTA. Usa el formato indicado, sin añadir texto introductorio ni conclusivo.
+
 ### 1. GLOBAL
 - Métricas medias: CPM=〈media〉, CTR=〈media〉, CPC=〈media〉, Frec=〈media〉, ROAS=〈media〉.
 - Outliers (más de 2σ): [lista de campañas con métrica desviada].
@@ -177,8 +180,7 @@ function computeAndromedaDirectives(records: Record<string, string>[]): Andromed
     ctr: parseNum(r[ctrCol]),
     roas: parseNum(r[roasCol]),
   }));
-
-  const validCpms = campaigns.map((c) => c.cpm).filter((v) => !isNaN(v));
+const validCpms = campaigns.map((c) => c.cpm).filter((v) => !isNaN(v));
   const cpmMean = validCpms.length > 0 ? validCpms.reduce((a, b) => a + b, 0) / validCpms.length : 0;
 
   const pattern4: AndromedaDirectives["pattern4"] = [];
@@ -192,6 +194,7 @@ function computeAndromedaDirectives(records: Record<string, string>[]): Andromed
 
   return { cpmMean, pattern4, pattern5 };
 }
+
 function buildDirectivesBlock(directives: AndromedaDirectives): string {
   let block = "\n════════════════════════════════════════\nDIRECTIVAS PRE-COMPUTADAS\n";
   block += `CPM medio: ${directives.cpmMean.toFixed(2)}€\n`;
@@ -222,26 +225,28 @@ function parseCsvToTable(filePath: string): { table: string; directives: Androme
 function deleteFile(filePath: string) {
   fs.unlink(filePath, (err) => { if (err) console.error(err.message); });
 }
-
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // ==== RUTAS PÚBLICAS (ANTES DEL MIDDLEWARE DE CLERK) ====
   app.get("/api/plans", (_req, res) => {
     res.json(PLANS);
   });
 
-  // Ruta pública del webhook de Stripe
+  // Ruta pública del webhook de Stripe (DEBE IR ANTES DE app.use("/api", ClerkExpressWithAuth()))
   app.post("/api/stripe-webhook", async (req: any, res) => {
     console.log("🔔 Webhook de Stripe recibido");
+    console.log("🔔 Headers:", req.headers);
+    console.log("🔔 Raw body length:", req.rawBody?.length);
     try {
       await handleStripeWebhook(req.rawBody, req.headers['stripe-signature']);
       console.log("✅ Webhook procesado exitosamente");
       res.json({ received: true });
     } catch (err: any) {
       console.error("❌ Error en webhook:", err.message);
+      console.error("❌ Stack:", err.stack);
       res.status(400).json({ error: err.message });
     }
   });
-// ==== MIDDLEWARE DE CLERK (protege el resto de rutas /api) ====
+  // ==== MIDDLEWARE DE CLERK ====
   if (process.env.CLERK_SECRET_KEY) {
     app.use("/api", ClerkExpressWithAuth());
     console.log("Clerk middleware aplicado en /api");
@@ -290,7 +295,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(500).json({ error: err.message });
     }
   });
-
+// ==== RUTA DE ANÁLISIS (POST /api/analyze) ====
   app.post("/api/analyze", upload.single("file"), async (req: any, res) => {
     console.log('1. Archivo recibido:', req.file ? 'OK' : 'No file');
     if (req.file) {
@@ -300,7 +305,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.log('   - Ruta:', req.file.path);
     }
     if (!req.file) return res.status(400).json({ error: "Sin archivo" });
-// --- FREEMIUM CHECK ---
+
+    // --- FREEMIUM CHECK ---
     let dbUser: User | null = null;
     if (process.env.CLERK_SECRET_KEY) {
       const clerkId: string | undefined = req.auth?.userId;
@@ -374,7 +380,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (stats.size === 0) {
             throw new Error("El archivo subido está vacío.");
           }
- let imageBuffer;
+
+          let imageBuffer;
           if (req.file.size > 500 * 1024) {
             console.log("3. Imagen grande, redimensionando con sharp...");
             imageBuffer = await sharp(req.file.path)
@@ -406,6 +413,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           console.log('Prompt length:', basePrompt.length);
           console.log('Base64 length:', base64Image.length);
 
+          // --- BLOQUE DE SEGURIDAD: LECTURA DEL PROMPT SAGRADO ---
           try {
             basePrompt = fs.readFileSync(path.join(process.cwd(), "prompt_base.txt"), "utf-8");
             console.log("✅ Prompt base cargado correctamente para el análisis");
@@ -460,8 +468,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const userPrompt = buildCsvPrompt(table, req.file.originalname, directives, budgetAdvice);
 
         // await checkBudget();
-
-        let model = "gpt-3.5-turbo";
+       let model = "gpt-3.5-turbo";
         if (records.length > 5) model = "gpt-4-turbo";
         else if (req.file.originalname.toLowerCase().includes("complejo")) model = "gpt-4-turbo";
 
@@ -477,6 +484,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         analysis = completion.choices[0].message.content || "";
       }
 
+      // Incrementar contador solo para free y pro (ilimitado no lleva conteo)
       if (dbUser && dbUser.plan !== "ilimitado") {
         await incrementAnalysisCount(dbUser.clerk_id);
         const updatedUser = await getOrCreateUser(dbUser.clerk_id);
@@ -527,6 +535,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
+
   // Endpoint: registrar interés en plan de pago
   app.post("/api/interest", async (req, res) => {
     const { plan, email, name } = req.body as { plan: string; email: string; name: string };
@@ -569,61 +578,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ status: isClerkConfigured ? "OK" : "Variables missing" });
   });
 
-  // HEALTH CHECK: Verificar balance de OpenAI cada hora
-  async function checkOpenAIBalance() {
-    try {
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        console.log("[HealthCheck] OPENAI_API_KEY no configurada");
-        return;
-      }
-
-      const response = await fetch("https://api.openai.com/v1/billing/credit_grants", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Billing API: ${response.status} - ${text}`);
-      }
-
-      const data = (await response.json()) as any;
-      const totalGrants = data.data?.[0]?.grant_amount ?? 0;
-      const usedGrants = data.data?.[0]?.used_amount ?? 0;
-      const remainingBalance = totalGrants - usedGrants;
-
-      console.log(`[HealthCheck] Balance: $${remainingBalance.toFixed(2)} (Total: $${totalGrants.toFixed(2)}, Usado: $${usedGrants.toFixed(2)})`);
-
-      if (remainingBalance < 5) {
-        await sendAlert(
-          "⚠️ ALERTA: Saldo bajo en OpenAI",
-          `El saldo disponible es bajo:\n\n` +
-          `Saldo restante: $${remainingBalance.toFixed(2)}\n` +
-          `Total asignado: $${totalGrants.toFixed(2)}\n` +
-          `Usado: $${usedGrants.toFixed(2)}\n` +
-          `Fecha: ${new Date().toISOString()}\n\n` +
-          `⚡ Acción recomendada: Añade más créditos a tu cuenta de OpenAI.`
-        );
-        console.warn("[HealthCheck] ⚠️ ALERTA: Saldo bajo en OpenAI");
-      }
-    } catch (err) {
-      console.error("[HealthCheck] Error verificando balance de OpenAI:", err);
-      await sendAlert(
-        "❌ ERROR: No se pudo verificar el balance de OpenAI",
-        `Error: ${err instanceof Error ? err.message : String(err)}\n` +
-        `Fecha: ${new Date().toISOString()}\n\n` +
-        `Verifica que OPENAI_API_KEY sea válida y tenga acceso a la Billing API.`
-      );
-    }
-  }
-
-  // setInterval(checkOpenAIBalance, 6 * 60 * 60 * 1000);
-  // setTimeout(checkOpenAIBalance, 10 * 1000);
+  // HEALTH CHECK: Verificar balance de OpenAI cada hora (deshabilitado por ahora)
+  // (Puedes dejarlo comentado o activarlo si quieres, pero no es necesario para que funcione el webhook)
 
   return httpServer;
 }
-
-
-
-
 
