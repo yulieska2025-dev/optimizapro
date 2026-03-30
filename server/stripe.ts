@@ -1,12 +1,17 @@
 import Stripe from "stripe";
-import { updateUserPlan, getUserByStripeCustomerId, getUserByStripeSubscriptionId, getOrCreateUser } from "./db";
+import {
+  updateUserPlan,
+  setUserPlanAndResetCount,
+  getUserByStripeCustomerId,
+  getUserByStripeSubscriptionId,
+  getOrCreateUser,
+} from "./db";
 import { sendAlert } from "./mailer";
 
 const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "";
 const ILIMITADO_PRICE_ID = process.env.STRIPE_ILIMITADO_PRICE_ID || "";
 
 function extractStripeKey(raw: string): string {
-  // Si el campo fue pegado con múltiples secretos, tomar solo el primer token
   const key = raw.trim().split(/\s+/)[0];
   if (!key.startsWith("sk_test_") && !key.startsWith("sk_live_")) {
     throw new Error("STRIPE_SECRET_KEY no tiene formato válido (debe empezar con sk_test_ o sk_live_)");
@@ -68,15 +73,15 @@ export async function handleStripeWebhook(
   signature: string
 ): Promise<void> {
   console.log("[Stripe Webhook] Webhook recibido");
-  
+
   const stripe = getStripe();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  
+
   console.log("[Stripe Webhook] ========== INICIALIZANDO WEBHOOK ==========");
   console.log(`[Stripe Webhook] Webhook secret configurado: ${!!webhookSecret}`);
   console.log(`[Stripe Webhook] Raw body length: ${rawBody.length}`);
   console.log(`[Stripe Webhook] Signature: ${signature.substring(0, 20)}...`);
-  
+
   if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET no configurada");
 
   let event: Stripe.Event;
@@ -98,16 +103,16 @@ export async function handleStripeWebhook(
     case "checkout.session.completed": {
       console.log("[Stripe Webhook] === CHECKOUT SESSION COMPLETED ===");
       const session = event.data.object as Stripe.Checkout.Session;
-      
+
       console.log("[Stripe Webhook] Sesión completa:", JSON.stringify(session, null, 2));
       console.log("💰 checkout.session.completed - Session:", JSON.stringify(session, null, 2));
-      
+
       const clerkUserId = session.client_reference_id;
       const customerEmail = session.customer_details?.email;
       console.log(`[Stripe Webhook] userId: ${clerkUserId}`);
       console.log(`💰 client_reference_id: ${clerkUserId}`);
       console.log(`💰 customer_email: ${customerEmail}`);
-      
+
       const stripeCustomerId =
         typeof session.customer === "string"
           ? session.customer
@@ -140,9 +145,14 @@ export async function handleStripeWebhook(
           console.error("[Stripe Webhook] Error obteniendo suscripción:", err);
         }
       }
-
-      console.log(`[Stripe Webhook] Actualizando usuario ${clerkUserId} a plan ${planName}`);
-      await updateUserPlan(clerkUserId, planName, stripeCustomerId ?? undefined, stripeSubscriptionId ?? undefined);
+ console.log(`[Stripe Webhook] Actualizando usuario ${clerkUserId} a plan ${planName} con contador reiniciado a 0`);
+      // Usamos la nueva función que reinicia analyses_count a 0
+      await setUserPlanAndResetCount(
+        clerkUserId,
+        planName,
+        stripeCustomerId ?? undefined,
+        stripeSubscriptionId ?? undefined
+      );
       console.log(`[Stripe Webhook] ✅ Usuario actualizado exitosamente: ${clerkUserId} → plan ${planName}`);
 
       try {
@@ -200,15 +210,15 @@ export async function handleStripeWebhook(
       const status = subscription.status;
 
       if (status === "active" || status === "trialing") {
-        await updateUserPlan(user.clerk_id, newPlan, stripeCustomerId, subscription.id);
-        console.log(`[Stripe Webhook] Suscripción actualizada: ${user.clerk_id} → ${newPlan}`);
+        // También reiniciamos el contador si se actualiza el plan (ej. de Pro a Ilimitado)
+        console.log(`[Stripe Webhook] Suscripción actualizada: ${user.clerk_id} → ${newPlan} (reiniciando contador)`);
+        await setUserPlanAndResetCount(user.clerk_id, newPlan, stripeCustomerId, subscription.id);
       } else if (status === "past_due" || status === "unpaid") {
         console.warn(`[Stripe Webhook] Suscripción en mora para ${user.clerk_id}`);
       }
       break;
     }
-
-    case "customer.subscription.deleted": {
+   case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       const stripeCustomerId =
         typeof subscription.customer === "string"
@@ -219,6 +229,7 @@ export async function handleStripeWebhook(
       const user = await getUserByStripeCustomerId(stripeCustomerId);
       if (!user) break;
 
+      // Al cancelar, pasa a gratuito pero no reiniciamos el contador (se maneja con el reinicio mensual)
       await updateUserPlan(user.clerk_id, "free");
       console.log(`[Stripe Webhook] Suscripción cancelada: ${user.clerk_id} → free`);
 
@@ -260,3 +271,6 @@ export const PLANS = [
     priceId: ILIMITADO_PRICE_ID,
   },
 ];
+
+    
+
