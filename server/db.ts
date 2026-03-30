@@ -128,7 +128,6 @@ export async function incrementAnalysisCount(clerkId: string): Promise<void> {
     ).run(clerkId);
   }
 }
-
 export async function checkIpLimit(ip: string, limit: number = 3): Promise<boolean> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   if (usePostgres) {
@@ -169,6 +168,33 @@ export async function updateUserPlan(
       `UPDATE users SET plan = ?, stripe_customer_id = COALESCE(?, stripe_customer_id), stripe_subscription_id = COALESCE(?, stripe_subscription_id) WHERE clerk_id = ?`
     ).run(plan, stripeCustomerId ?? null, stripeSubscriptionId ?? null, clerkId);
   }
+  console.log(`[DB] Usuario ${clerkId} actualizado a plan ${plan}`);
+}
+
+// Nueva función: actualiza el plan y resetea el contador a 0
+export async function setUserPlanAndResetCount(
+  clerkId: string,
+  plan: string,
+  stripeCustomerId?: string,
+  stripeSubscriptionId?: string
+): Promise<void> {
+  if (usePostgres) {
+    await pool.query(
+      `UPDATE users SET plan = $1, analyses_count = 0, last_analysis_date = CURRENT_TIMESTAMP,
+       stripe_customer_id = COALESCE($2, stripe_customer_id),
+       stripe_subscription_id = COALESCE($3, stripe_subscription_id)
+       WHERE clerk_id = $4`,
+      [plan, stripeCustomerId ?? null, stripeSubscriptionId ?? null, clerkId]
+    );
+  } else {
+    db.prepare(
+      `UPDATE users SET plan = ?, analyses_count = 0, last_analysis_date = CURRENT_TIMESTAMP,
+       stripe_customer_id = COALESCE(?, stripe_customer_id),
+       stripe_subscription_id = COALESCE(?, stripe_subscription_id)
+       WHERE clerk_id = ?`
+    ).run(plan, stripeCustomerId ?? null, stripeSubscriptionId ?? null, clerkId);
+  }
+  console.log(`[DB] Usuario ${clerkId} actualizado a plan ${plan} con contador reiniciado a 0`);
 }
 
 export async function getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
@@ -190,3 +216,5 @@ export async function getUserByStripeSubscriptionId(stripeSubscriptionId: string
 }
 
 export default db;
+
+
