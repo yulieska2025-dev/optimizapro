@@ -1,7 +1,6 @@
-
 // 1. IMPORTS
 import type { Express } from "express";
-import { createServer, type Server } "http";
+import { createServer, type Server } from "http";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -76,7 +75,6 @@ function findCol(record: Record<string, string>, ...candidates: string[]): strin
   }
   return undefined;
 }
-
 /**
  * CONTROL DE PRESUPUESTO Y ENRUTAMIENTO INTELIGENTE
  */
@@ -180,7 +178,8 @@ function computeAndromedaDirectives(records: Record<string, string>[]): Andromed
     ctr: parseNum(r[ctrCol]),
     roas: parseNum(r[roasCol]),
   }));
-const validCpms = campaigns.map((c) => c.cpm).filter((v) => !isNaN(v));
+
+  const validCpms = campaigns.map((c) => c.cpm).filter((v) => !isNaN(v));
   const cpmMean = validCpms.length > 0 ? validCpms.reduce((a, b) => a + b, 0) / validCpms.length : 0;
 
   const pattern4: AndromedaDirectives["pattern4"] = [];
@@ -225,6 +224,7 @@ function parseCsvToTable(filePath: string): { table: string; directives: Androme
 function deleteFile(filePath: string) {
   fs.unlink(filePath, (err) => { if (err) console.error(err.message); });
 }
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // ==== RUTAS PÚBLICAS (ANTES DEL MIDDLEWARE DE CLERK) ====
   app.get("/api/plans", (_req, res) => {
@@ -246,6 +246,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(400).json({ error: err.message });
     }
   });
+
   // ==== MIDDLEWARE DE CLERK ====
   if (process.env.CLERK_SECRET_KEY) {
     app.use("/api", ClerkExpressWithAuth());
@@ -295,7 +296,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(500).json({ error: err.message });
     }
   });
-// ==== RUTA DE ANÁLISIS (POST /api/analyze) ====
+
+  // ==== RUTA DE ANÁLISIS (POST /api/analyze) ====
   app.post("/api/analyze", upload.single("file"), async (req: any, res) => {
     console.log('1. Archivo recibido:', req.file ? 'OK' : 'No file');
     if (req.file) {
@@ -468,7 +470,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const userPrompt = buildCsvPrompt(table, req.file.originalname, directives, budgetAdvice);
 
         // await checkBudget();
-       let model = "gpt-3.5-turbo";
+        let model = "gpt-3.5-turbo";
         if (records.length > 5) model = "gpt-4-turbo";
         else if (req.file.originalname.toLowerCase().includes("complejo")) model = "gpt-4-turbo";
 
@@ -584,3 +586,4 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   return httpServer;
 }
 
+/**
