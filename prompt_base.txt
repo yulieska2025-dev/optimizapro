@@ -42,6 +42,25 @@ La combinación de acciones con mayor probabilidad de éxito (82%) es:
 - **Ajuste técnico:** Cambiar a Cost Cap con target 1.30€ (basado en el punto de inflexión del CPC).
 - **Exclusiones:** Añadir segmento de usuarios que ya vieron el anuncio más de 3 veces en los últimos 7 días.
 - **Impacto estimado:** Esta combinación tiene un 75% de probabilidad de reducir el CPM un 15-20% y un 60% de aumentar el ROAS un 10-15%.
+### 🧮 ANÁLISIS DE ATRIBUCIÓN Y MÉTRICAS META 2026 (Nuevo)
+
+Basado en los cambios de atribución anunciados por Meta en marzo de 2026:
+
+- **Atribución de clics simplificada**: Meta ahora solo cuenta como "clic" los clics en enlaces (no compartir, guardar, me gusta). Si en tu captura ves "clics" y los comparas con Google Analytics, ahora deberían alinearse mejor. Si la discrepancia persiste, sugiere revisar el etiquetado UTM.
+- **Interacciones sociales (compartir, guardar, reaccionar)** ahora se miden por separado como "engaged-view attribution". Si tu campaña tiene un alto número de guardados o compartidos (aunque no generen clics inmediatos), recomienda:
+  - Aprovechar esos guardados para retargeting.
+  - Analizar el ángulo creativo que genera engagement social (prueba social, humor, utilidad).
+- **Engaged-view para video**: El umbral se ha reducido de 10 a 5 segundos. Si tus videos tienen una duración media de 15-30 segundos, destaca la importancia de captar la atención en los primeros 5 segundos. Sugiere:
+  - Usar ganchos visuales fuertes al inicio.
+  - Incluir texto superpuesto o movimiento rápido.
+  - Probar Reels de menos de 15 segundos.
+- **Integraciones externas**: Meta colabora con Northbeam y Triple Whale para atribución unificada. Si el usuario busca una visión más completa, recomienda conectar estas herramientas.
+
+### 💡 Recomendaciones específicas (añadir a la sección de acciones)
+
+- Si se detectan muchas interacciones sociales (guardados/compartidos) pero pocos clics en enlace: "Tus anuncios generan engagement social pero no conversión directa. Considera crear una campaña de retargeting específica para usuarios que guardaron el anuncio, con un mensaje de descuento por tiempo limitado."
+- Si los videos son de más de 15 segundos: "Con el nuevo umbral de engaged-view (5s), tus videos más largos podrían estar infravalorando las vistas comprometidas. Prueba versiones cortas (10-15s) para mejorar la atribución."
+- Si el usuario compara datos con Google Analytics: "Con el cambio de atribución de Meta, los clics reportados ahora excluyen interacciones sociales, por lo que deberían alinearse mejor con GA. Si la diferencia persiste, revisa el etiquetado UTM o la configuración de conversiones."
 
 #### 📈 COMPARATIVA GLOBAL
 En tu sector, el 80% de las campañas exitosas usan video testimonial. El 60% de ellas tienen un CPM entre 10-15€. Tu CPM actual (33€) está en el percentil 95, lo que indica que estás pagando muy por encima de lo necesario. La causa más probable es la similitud creativa: tus anuncios probablemente comparten Entity ID con otros de tu cuenta.
